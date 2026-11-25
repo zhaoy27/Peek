@@ -13,6 +13,7 @@ import io.github.liki4.peek.ftms.PowerModel
 import io.github.liki4.peek.history.RideDatabase
 import io.github.liki4.peek.history.RideSessionEntity
 import io.github.liki4.peek.hr.HrBeltClient
+import io.github.liki4.peek.protocol.Constants
 import io.github.liki4.peek.strava.StravaClient
 import io.github.liki4.peek.strava.StravaException
 import io.github.liki4.peek.protocol.KeepFrame
@@ -102,6 +103,13 @@ class RideRepository private constructor(private val appContext: Context) {
     private val powerModel = PowerModel()
     @Volatile private var powerModelLoaded = false
     @Volatile private var lastCommandedLevel: Int? = null
+
+    /**
+     * Resistance ceiling of the connected bike: 18 on CC_23, 24 on C3. Drives
+     * the ERG/SIM picker, the calibration wizard's levels and the FTMS
+     * advertised range. Falls back to CC_23's range until a bike is connected.
+     */
+    @Volatile private var bikeMaxResistance: Int = Constants.DEFAULT_MAX_RESISTANCE
     private val ergCtrl = ErgController()
     /**
      * Raw 1Hz (rpm, watt) samples for the calibration wizard. We always emit
@@ -116,6 +124,7 @@ class RideRepository private constructor(private val appContext: Context) {
         context = appContext,
         ergCtrl = ergCtrl,
         onSetResistance = { level -> runCatching { bikeClient.setResistance(level) } },
+        maxResistance = { bikeMaxResistance },
     )
 
     init {
@@ -314,6 +323,9 @@ class RideRepository private constructor(private val appContext: Context) {
     // with "The coroutine scope left the composition".
 
     fun connectBike(address: String, name: String) {
+        // Model-specific brake range: C3 has 24 levels, C1 Mini 18.
+        bikeMaxResistance = Constants.maxResistanceFor(name)
+        powerModel.maxLevel = bikeMaxResistance
         scope.launch {
             _state.update { it.copy(state = RideState.CONNECTING, error = null) }
             try {
@@ -468,6 +480,7 @@ class RideRepository private constructor(private val appContext: Context) {
             model = powerModel,
             setLevel = { L -> runCatching { bikeClient.setResistance(L) } },
             samples = calibrationSamples,
+            levels = CalibrationRunner.levelsFor(bikeMaxResistance),
         )
         val mirror = scope.launch {
             runner.progress.collect { p -> _state.update { it.copy(calibration = p) } }
@@ -488,7 +501,7 @@ class RideRepository private constructor(private val appContext: Context) {
     }
 
     fun setResistance(level: Int) {
-        require(level in 1..18) { "resistance out of range: $level" }
+        require(level in 1..bikeMaxResistance) { "resistance out of range: $level" }
         scope.launch { runCatching { bikeClient.setResistance(level) } }
     }
 
@@ -563,7 +576,7 @@ class RideRepository private constructor(private val appContext: Context) {
                         val L = live.resistance
                         val rpm = live.rpm ?: 0
                         val watt = live.watt ?: 0
-                        if (recording && L != null && L in 1..PowerModel.NUM_LEVELS &&
+                        if (recording && L != null && L in 1..powerModel.maxLevel &&
                             rpm > CalibrationRunner.MIN_RPM_FOR_FIT && watt > 0) {
                             powerModel.feed(L, rpm, watt)
                         }
@@ -634,7 +647,7 @@ class RideRepository private constructor(private val appContext: Context) {
         if (!ergCtrl.isActive()) return
 
         if (ergCtrl.currentSim != null && !powerModel.isReady()) {
-            val level = ErgController.simFallbackLevel(ergCtrl.currentSim!!)
+            val level = ErgController.simFallbackLevel(ergCtrl.currentSim!!, bikeMaxResistance)
             if (level == lastCommandedLevel) return
             lastCommandedLevel = level
             runCatching { bikeClient.setResistance(level) }

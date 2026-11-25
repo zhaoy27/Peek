@@ -106,12 +106,13 @@ curl -X POST https://www.strava.com/oauth/token \
 - **广播名**：C3 广播为 `KEEP_C3_*`（全大写），C1 Mini 为 `Keep_CC_*`。扫描过滤已改为对 `Keep_` 前缀做大小写不敏感匹配，两种车型都能识别
 - **GATT 层**：同样的服务 `0x00FF` / 特征 `0xFF01`（write-without-response + notify）
 - **协议层**：握手、数据格式完全兼容，实机验证读取踏频/功率/阻力正常
+- **阻力档位**：C1 Mini 为 18 档，C3 为 **24 档**。App 按车型自动取上限（`Constants.BIKE_MODELS`），手动调阻、ERG/SIM 选档、校准向导都会跟随车型
 
 已知差异（后续待适配）：
 
-1. C3 为 32 档调阻，协议代码按 CC_23 的 1~18 档编码，App 内手动调阻的档位范围可能对不上
-2. 功率模型按 CC_23 校准，C3 的功率换算可能偏差较大，建议使用 App 内的功率校准功能重新学习
-3. FTMS 桥接 / ERG 模式在 C3 上未测试
+1. 功率模型按 C1 Mini 校准，C3 上必须重新做一次「功率校准」（`设置 → 功率-档位 校准`），否则 ERG 目标功率不准
+2. ERG / SIM / FTMS 桥接在 C3 上尚未实测，档位下发（`PUT 106/6`）能否正确驱动 19~24 档需要验证
+3. 24 档的上限来自 C3 的标称规格；若固件实际只接受更小的编码范围，会退化为 `CMD ERROR`，此时把 `Constants.BIKE_MODELS` 里 C3 的 `maxResistance` 调小即可
 
 ## 开发相关
 

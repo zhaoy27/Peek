@@ -10,6 +10,32 @@ import kotlin.random.Random
 
 class PowerModelTest {
 
+    /** C3 has 24 brake levels; the model must accept them above CC_23's 18. */
+    @Test
+    fun `accepts levels above 18 once the bike range is raised`() {
+        val m = PowerModel()
+        m.maxLevel = 24
+        for (L in listOf(2, 6, 10, 14, 18, 22)) {
+            // ≥ MIN_SAMPLES(10) samples with rpm variance so the regression fits.
+            for (rpm in 60..84 step 2) {
+                m.feed(L, rpm, (0.6f * rpm + 2f * L).toInt())
+            }
+        }
+        assertTrue(m.isReady())
+        val picked = m.pickLevel(200, 75)
+        assertTrue("picked=$picked", picked != null && picked in 1..24)
+        // Levels outside the bike's range must be rejected.
+        try { m.feed(25, 70, 200); throw AssertionError("expected IllegalArgumentException") }
+        catch (_: IllegalArgumentException) { }
+    }
+
+    @Test
+    fun `default range still stops at 18`() {
+        val m = PowerModel()
+        try { m.feed(19, 70, 200); throw AssertionError("expected IllegalArgumentException") }
+        catch (_: IllegalArgumentException) { }
+    }
+
     /** Simulates the bike: at level L the rider produces `a(L)·rpm + b(L)` watts with noise. */
     private fun trueWatt(level: Int, rpm: Int, noise: Float = 0f): Int {
         // Hand-picked plausible spin-bike curve: harder levels = steeper rpm coefficient.

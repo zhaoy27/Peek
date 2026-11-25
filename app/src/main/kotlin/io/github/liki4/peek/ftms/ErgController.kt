@@ -87,15 +87,17 @@ class ErgController {
         /**
          * Direct grade→level mapping for SIM mode when PowerModel has no
          * calibration data. Lets Zwift route-riding work out of the box.
+         *
+         * [maxLevel] is the bike's brake range (18 on CC_23, 24 on C3).
          */
-        fun simFallbackLevel(params: SimParams): Int {
+        fun simFallbackLevel(params: SimParams, maxLevel: Int = 18): Int {
             val gradeEffect = if (params.gradePercent >= 0)
                 params.gradePercent * SIM_FB_GRADE_UP
             else
                 params.gradePercent * SIM_FB_GRADE_DOWN
             val windEffect = -params.windMps * SIM_FB_WIND
             return (SIM_FB_BASE + gradeEffect + windEffect)
-                .toInt().coerceIn(1, 18)
+                .toInt().coerceIn(1, maxLevel)
         }
     }
 }

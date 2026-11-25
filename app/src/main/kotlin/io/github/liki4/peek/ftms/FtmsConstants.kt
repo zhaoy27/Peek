@@ -139,7 +139,11 @@ object FtmsConstants {
         const val CONTROL_NOT_PERMITTED  = 0x05
     }
 
-    /** Resistance range advertised in 0x2AD6 — matches CC_23's 1..18 spring brake. */
+    /**
+     * Resistance range advertised in 0x2AD6 — the CC_23 spring-brake range,
+     * also the fallback when the bike model is unknown. C3 has 24 levels; the
+     * live value comes from [FtmsBridge.maxResistance].
+     */
     const val RESISTANCE_MIN = 1
     const val RESISTANCE_MAX = 18
     const val RESISTANCE_INCREMENT = 1

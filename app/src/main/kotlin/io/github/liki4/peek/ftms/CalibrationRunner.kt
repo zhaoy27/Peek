@@ -111,8 +111,18 @@ class CalibrationRunner(
     }
 
     companion object {
-        /** 6 wizard levels, evenly spaced across 1..18, covering low/mid/high. */
+        /** 6 wizard levels, evenly spaced across 1..18 (CC_23), covering low/mid/high. */
         val LEVELS_DEFAULT = listOf(2, 5, 8, 11, 14, 17)
+
+        /** Same idea for 24-level brakes (C3 / K0105D). */
+        val LEVELS_24 = listOf(2, 6, 10, 14, 18, 22)
+
+        /** Wizard levels for a bike whose brake tops out at [maxLevel]. */
+        fun levelsFor(maxLevel: Int): List<Int> = when {
+            maxLevel >= 24 -> LEVELS_24
+            maxLevel >= 18 -> LEVELS_DEFAULT
+            else -> LEVELS_DEFAULT.filter { it <= maxLevel }.ifEmpty { listOf(1) }
+        }
 
         /** Below this rpm, samples are noise — treat as coasting. */
         const val MIN_RPM_FOR_FIT = 20

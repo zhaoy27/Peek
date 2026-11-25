@@ -57,6 +57,11 @@ class FtmsBridge(
     private val ergCtrl: ErgController,
     /** Callback when an FTMS client writes Set Target Resistance (op 0x04). */
     private val onSetResistance: suspend (Int) -> Unit,
+    /**
+     * Highest resistance level of the connected bike (18 on CC_23, 24 on C3).
+     * Read lazily so the bridge outlives bike reconnects.
+     */
+    private val maxResistance: () -> Int = { FtmsConstants.RESISTANCE_MAX },
 ) {
 
     sealed class State {
@@ -337,7 +342,7 @@ class FtmsBridge(
                 ergCtrl.reset(); req.op to CpResult.SUCCESS
             }
             is ControlPointDecoder.CpRequest.SetTargetResistance -> {
-                val level = req.level.toInt().coerceIn(FtmsConstants.RESISTANCE_MIN, FtmsConstants.RESISTANCE_MAX)
+                val level = req.level.toInt().coerceIn(FtmsConstants.RESISTANCE_MIN, maxResistance())
                 scope.launch { runCatching { onSetResistance(level) } }
                 req.op to CpResult.SUCCESS
             }
@@ -475,7 +480,7 @@ class FtmsBridge(
     private fun resistanceRangeBytes(): ByteArray =
         ByteBuffer.allocate(6).order(ByteOrder.LITTLE_ENDIAN)
             .putShort(FtmsConstants.RESISTANCE_MIN.toShort())
-            .putShort(FtmsConstants.RESISTANCE_MAX.toShort())
+            .putShort(maxResistance().toShort())
             .putShort(FtmsConstants.RESISTANCE_INCREMENT.toShort())
             .array()
 

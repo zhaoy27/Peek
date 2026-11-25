@@ -10,11 +10,11 @@ import kotlin.math.abs
  * least-squares fit (no per-sample storage). Calibrated levels feed
  * directly; uncalibrated levels' coefficients are linearly interpolated
  * between the nearest calibrated neighbours (extrapolating at the L=1 and
- * L=18 edges).
+ * L=[maxLevel] edges).
  *
  * Used by [ErgController] to translate FTMS target-power requests into a
- * 1..18 resistance level. See `memory/project_keep_power_resistance_re.md`
- * for why this model is necessary — the Keep app itself doesn't have one
+ * resistance level in 1..[maxLevel] (18 on CC_23, 24 on C3). See
+ * `memory/project_keep_power_resistance_re.md` for why this model is necessary — the Keep app itself doesn't have one
  * because its courses pre-bake the resistance integer in cloud JSON.
  *
  * Persistence: [toBlob] / [fromBlob] produce a compact delimited string that
@@ -22,7 +22,7 @@ import kotlin.math.abs
  */
 class PowerModel {
 
-    /** Accumulators per level. Indexed [0..17] for L in [1..18]. */
+    /** Accumulators per level. Indexed [0..MAX_LEVELS-1] for L in [1..maxLevel]. */
     private data class LevelStats(
         var n: Long = 0,
         var sumRpm: Double = 0.0,
@@ -31,15 +31,24 @@ class PowerModel {
         var sumRpmSq: Double = 0.0,
     )
 
-    private val stats = Array(NUM_LEVELS) { LevelStats() }
+    private val stats = Array(MAX_LEVELS) { LevelStats() }
 
     /**
-     * Add one sample. [level] must be 1..18 — this is the level the bike was
+     * Highest usable resistance level for the connected bike: 18 on CC_23,
+     * 24 on C3. Set once the bike model is known ([RideRepository] does this on
+     * connect); levels above it are never sampled or commanded.
+     */
+    @Volatile
+    var maxLevel: Int = DEFAULT_LEVELS
+        set(value) { field = value.coerceIn(1, MAX_LEVELS) }
+
+    /**
+     * Add one sample. [level] must be 1..maxLevel — this is the level the bike was
      * commanded to (and is currently echoing), NOT a target. Caller filters
      * coasting (rpm=0) and paused (watt=0) before calling.
      */
     fun feed(level: Int, rpm: Int, watt: Int) {
-        require(level in 1..NUM_LEVELS) { "level out of range: $level" }
+        require(level in 1..maxLevel) { "level out of range: $level" }
         val s = stats[level - 1]
         s.n++
         s.sumRpm += rpm
@@ -88,13 +97,13 @@ class PowerModel {
         if (!isReady()) return null
         var bestL = 1
         var bestDiff = Float.MAX_VALUE
-        for (L in 1..NUM_LEVELS) {
+        for (L in 1..maxLevel) {
             val p = predict(L, rpm)
             if (p.isNaN()) continue
             val d = abs(p - targetWatt)
             if (d < bestDiff) { bestDiff = d; bestL = L }
         }
-        return bestL.coerceIn(1, NUM_LEVELS)
+        return bestL.coerceIn(1, maxLevel)
     }
 
     /** Return (α, β) for a level if it has enough samples + rpm variance; else null. */
@@ -109,11 +118,11 @@ class PowerModel {
     }
 
     private fun calibratedLevels(): List<Int> =
-        (1..NUM_LEVELS).filter { coefs(it) != null }
+        (1..maxLevel).filter { coefs(it) != null }
 
     /** Inspect sample count for a level — used by UI to show calibration progress. */
     fun sampleCount(level: Int): Long {
-        require(level in 1..NUM_LEVELS)
+        require(level in 1..maxLevel)
         return stats[level - 1].n
     }
 
@@ -123,7 +132,7 @@ class PowerModel {
      * the long-lived model instance held by RideRepository.
      */
     fun replaceWith(other: PowerModel) {
-        for (i in 0 until NUM_LEVELS) {
+        for (i in 0 until MAX_LEVELS) {
             stats[i] = other.stats[i].copy()
         }
     }
@@ -135,7 +144,7 @@ class PowerModel {
 
     fun toBlob(): String {
         val sb = StringBuilder(VERSION_PREFIX)
-        for (L in 1..NUM_LEVELS) {
+        for (L in 1..maxLevel) {
             val s = stats[L - 1]
             if (s.n == 0L) continue
             sb.append('|')
@@ -150,7 +159,11 @@ class PowerModel {
     }
 
     companion object {
-        const val NUM_LEVELS = 18
+        /** Resistance levels on CC_23 — also the fallback when the model is unknown. */
+        const val DEFAULT_LEVELS = 18
+
+        /** Highest resistance level of any supported bike (C3 = 24). */
+        const val MAX_LEVELS = 24
 
         /**
          * Minimum samples per level before we trust its direct regression.
@@ -169,7 +182,7 @@ class PowerModel {
                 val colon = seg.indexOf(':')
                 if (colon <= 0) continue
                 val level = seg.substring(0, colon).toIntOrNull() ?: continue
-                if (level !in 1..NUM_LEVELS) continue
+                if (level !in 1..MAX_LEVELS) continue
                 val fields = seg.substring(colon + 1).split(',')
                 if (fields.size < 5) continue
                 m.stats[level - 1] = LevelStats(

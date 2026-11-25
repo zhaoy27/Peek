@@ -16,6 +16,16 @@ import org.junit.Test
 class CalibrationRunnerTest {
 
     @Test
+    fun `levelsFor 24-level bike spans the wider range`() {
+        val levels = CalibrationRunner.levelsFor(24)
+        assertEquals(6, levels.size)
+        assertTrue(levels.all { it in 1..24 })
+        assertTrue("max=${levels.max()}", levels.max() >= 20)
+        // 18-level bikes keep the original wizard levels.
+        assertEquals(CalibrationRunner.LEVELS_DEFAULT, CalibrationRunner.levelsFor(18))
+    }
+
+    @Test
     fun `runner walks all six levels and feeds the model`() = runTest {
         val model = PowerModel()
         val samples = MutableSharedFlow<CalibrationSample>(replay = 0, extraBufferCapacity = 256)
