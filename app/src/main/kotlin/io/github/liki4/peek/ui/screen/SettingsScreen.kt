@@ -426,7 +426,7 @@ private fun BikeScanList(onPair: (String, String) -> Unit) {
     }
 
     if (bikes.isEmpty()) {
-        Text("正在扫描 Keep_CC_… 设备",
+        Text("正在扫描 Keep_ 设备 (CC_23 / C3)",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     } else {

@@ -13,10 +13,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
 /**
- * BluetoothLeScanner wrapper that emits `Keep_CC_*` devices as a Flow.
+ * BluetoothLeScanner wrapper that emits `Keep_*` devices (CC_23, C3) as a Flow.
  *
  * The caller must hold the BLUETOOTH_SCAN runtime permission (API 31+). We
- * filter on local name prefix because the CC_23 advertises its name in the
+ * filter on local name prefix because these bikes advertise their names in the
  * scan response, not in a service UUID we can pre-filter on.
  */
 class BikeScanner(context: Context) {
@@ -38,7 +38,7 @@ class BikeScanner(context: Context) {
                 val name = device.name
                     ?: result.scanRecord?.deviceName
                     ?: return
-                if (!name.startsWith(Constants.NAME_PREFIX)) return
+                if (!Constants.matchesBikeName(name)) return
                 val prev = seen[device.address]
                 if (prev == result.rssi) return  // no change
                 seen[device.address] = result.rssi

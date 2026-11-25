@@ -81,7 +81,7 @@ fun ScanScreen(
 
         SectionHeader("Bikes")
         if (bikes.isEmpty()) {
-            Text("Scanning for Keep_CC_… devices",
+            Text("Scanning for Keep_ devices (CC_23 / C3)",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {

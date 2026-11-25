@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Context
 
-Peek Android app — standalone Kotlin/Compose app that connects to a Keep CC_23 (C1 Mini) spin bike over BLE, records ride data, produces Garmin FIT files for Strava upload, and re-broadcasts as a standard FTMS Indoor Bike for Zwift.
+Peek Android app — standalone Kotlin/Compose app that connects to Keep spin bikes over BLE (CC_23 / C1 Mini, and KEEP_C3_* / C3 — same wire protocol, verified on a real C3), records ride data, produces Garmin FIT files for Strava upload, and re-broadcasts as a standard FTMS Indoor Bike for Zwift.
 
-The BLE protocol was reverse-engineered from the Keep APK and validated against a real bike (SN 10200901). The protocol spec and reference Python implementation live in the parent project (`Keep/`) alongside captured test fixtures. CC_23 invariants to watch for: OBSERVE uses method `0x01` not `0x04`, speed is derived from distance deltas, `TrainAttribute` is event-driven (resistance only), and CRC is CRC-16/XMODEM LE.
+The BLE protocol was reverse-engineered from the Keep APK and validated against a real bike (SN 10200901). The protocol spec and reference Python implementation live in the parent project (`Keep/`) alongside captured test fixtures. C3 (K0105D) advertises `KEEP_C3_*` (all upper case) but speaks the same GATT (0x00FF/0xFF01) and wire protocol as CC_23; bike-name matching is a case-insensitive `Keep_` prefix check (`Constants.matchesBikeName`). Known divergences: C3 has 32 resistance levels (code still assumes CC_23's 1..18) and the power model is CC_23-calibrated.
+
+CC_23 invariants to watch for: OBSERVE uses method `0x01` not `0x04`, speed is derived from distance deltas, `TrainAttribute` is event-driven (resistance only), and CRC is CRC-16/XMODEM LE.
 
 ## Build & test
 
