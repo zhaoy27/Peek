@@ -34,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.liki4.peek.ftms.FtmsBridge
+import io.github.liki4.peek.protocol.Constants
 import io.github.liki4.peek.ride.RideRepository
 import io.github.liki4.peek.ride.RideState
 import io.github.liki4.peek.ride.RideUiState
@@ -76,6 +77,8 @@ fun RideScreen(
         Spacer(Modifier.height(8.dp))
         ResistanceFooter(
             currentLevel = ui.live.resistance,
+            // 18 on C1 Mini, 24 on C3 — resolved from the connected bike's name.
+            maxLevel = Constants.maxResistanceFor(ui.bike?.name ?: ""),
             onSet = { repo.setResistance(it) },
         )
         Spacer(Modifier.height(8.dp))
@@ -371,7 +374,7 @@ private fun VerticalThinDivider() {
 // ============================== FOOTER ==============================
 
 @Composable
-private fun ResistanceFooter(currentLevel: Int?, onSet: (Int) -> Unit) {
+private fun ResistanceFooter(currentLevel: Int?, maxLevel: Int, onSet: (Int) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -389,14 +392,14 @@ private fun ResistanceFooter(currentLevel: Int?, onSet: (Int) -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    "${currentLevel?.toString() ?: "—"} / 18",
+                    "${currentLevel?.toString() ?: "—"} / $maxLevel",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
             OutlinedButton(
-                onClick = { currentLevel?.let { onSet((it + 1).coerceAtMost(18)) } },
-                enabled = currentLevel != null && currentLevel < 18,
+                onClick = { currentLevel?.let { onSet((it + 1).coerceAtMost(maxLevel)) } },
+                enabled = currentLevel != null && currentLevel < maxLevel,
             ) { Text("+", fontSize = 20.sp) }
         }
     }

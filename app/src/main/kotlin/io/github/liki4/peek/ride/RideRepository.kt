@@ -13,6 +13,7 @@ import io.github.liki4.peek.ftms.PowerModel
 import io.github.liki4.peek.history.RideDatabase
 import io.github.liki4.peek.history.RideSessionEntity
 import io.github.liki4.peek.hr.HrBeltClient
+import io.github.liki4.peek.ble.BleAvailability
 import io.github.liki4.peek.protocol.Constants
 import io.github.liki4.peek.strava.StravaClient
 import io.github.liki4.peek.strava.StravaException
@@ -326,6 +327,10 @@ class RideRepository private constructor(private val appContext: Context) {
         // Model-specific brake range: C3 has 24 levels, C1 Mini 18.
         bikeMaxResistance = Constants.maxResistanceFor(name)
         powerModel.maxLevel = bikeMaxResistance
+        if (!BleAvailability.isBluetoothOn(appContext)) {
+            _state.update { it.copy(state = RideState.IDLE, error = "蓝牙未开启，请打开系统蓝牙后重试") }
+            return
+        }
         scope.launch {
             _state.update { it.copy(state = RideState.CONNECTING, error = null) }
             try {
@@ -368,6 +373,10 @@ class RideRepository private constructor(private val appContext: Context) {
     }
 
     fun connectHr(address: String, name: String) {
+        if (!BleAvailability.isBluetoothOn(appContext)) {
+            _state.update { it.copy(error = "蓝牙未开启，请打开系统蓝牙后重试") }
+            return
+        }
         scope.launch {
             try {
                 hrClient.connect(address)

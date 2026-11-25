@@ -205,7 +205,7 @@ private fun DoneCard(measured: List<Int>, lowVariance: List<Int>, onDone: () -> 
                 )
             }
             Spacer(Modifier.height(8.dp))
-            Text("其余 ${18 - measured.size} 档由插值得到。ERG / SIM 已就绪。",
+            Text("已测档位之外的档位由插值得到。ERG / SIM 已就绪。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(16.dp))

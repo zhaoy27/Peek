@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.liki4.peek.ble.BikeScanner
+import io.github.liki4.peek.ble.BleAvailability
 import io.github.liki4.peek.ble.DiscoveredBike
 import io.github.liki4.peek.ble.DiscoveredHrBelt
 import io.github.liki4.peek.ftms.FtmsBridge
@@ -414,21 +415,28 @@ private fun BikeScanList(onPair: (String, String) -> Unit) {
     val bikes = remember { mutableStateListOf<DiscoveredBike>() }
     val scope = rememberCoroutineScope()
     var scanJob: Job? by remember { mutableStateOf(null) }
+    var scanError by remember { mutableStateOf<String?>(null) }
 
     DisposableEffect(Unit) {
+        scanError = if (BleAvailability.isBluetoothOn(ctx)) null
+                    else "蓝牙未开启，请打开系统蓝牙后重新进入本页"
         scanJob = scope.launch {
-            BikeScanner(ctx).scan().collect { b ->
-                val idx = bikes.indexOfFirst { it.address == b.address }
-                if (idx >= 0) bikes[idx] = b else bikes += b
-            }
+            if (scanError != null) return@launch
+            runCatching {
+                BikeScanner(ctx).scan().collect { b ->
+                    val idx = bikes.indexOfFirst { it.address == b.address }
+                    if (idx >= 0) bikes[idx] = b else bikes += b
+                }
+            }.onFailure { scanError = BleAvailability.friendlyMessage(ctx, it) }
         }
         onDispose { scanJob?.cancel() }
     }
 
     if (bikes.isEmpty()) {
-        Text("正在扫描 Keep_ 设备 (CC_23 / C3)",
+        Text(scanError ?: "正在扫描 Keep_ 设备 (CC_23 / C3)",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+            color = if (scanError != null) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant)
     } else {
         bikes.forEach { bike ->
             DiscoveredRow(name = bike.name, sub = "${bike.address}   ${bike.rssi} dBm") {
@@ -444,21 +452,28 @@ private fun HrScanList(onPair: (String, String) -> Unit) {
     val belts = remember { mutableStateListOf<DiscoveredHrBelt>() }
     val scope = rememberCoroutineScope()
     var scanJob: Job? by remember { mutableStateOf(null) }
+    var scanError by remember { mutableStateOf<String?>(null) }
 
     DisposableEffect(Unit) {
+        scanError = if (BleAvailability.isBluetoothOn(ctx)) null
+                    else "蓝牙未开启，请打开系统蓝牙后重新进入本页"
         scanJob = scope.launch {
-            HrBeltClient(ctx).scan().collect { h ->
-                val idx = belts.indexOfFirst { it.address == h.address }
-                if (idx >= 0) belts[idx] = h else belts += h
-            }
+            if (scanError != null) return@launch
+            runCatching {
+                HrBeltClient(ctx).scan().collect { h ->
+                    val idx = belts.indexOfFirst { it.address == h.address }
+                    if (idx >= 0) belts[idx] = h else belts += h
+                }
+            }.onFailure { scanError = BleAvailability.friendlyMessage(ctx, it) }
         }
         onDispose { scanJob?.cancel() }
     }
 
     if (belts.isEmpty()) {
-        Text("正在扫描 BLE 心率服务 (0x180D)",
+        Text(scanError ?: "正在扫描 BLE 心率服务 (0x180D)",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+            color = if (scanError != null) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant)
     } else {
         belts.forEach { belt ->
             DiscoveredRow(name = belt.name, sub = "${belt.address}   ${belt.rssi} dBm") {
